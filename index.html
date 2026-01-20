@@ -133,7 +133,8 @@
       <button class="btn btn-gray" onclick="duplicateSelected()">📋 Duplicar</button>
       <div style="flex:1"></div>
       <button class="btn btn-blue" onclick="copyZPL()">📋 Copiar ZPL</button>
-      <button class="btn btn-green" onclick="downloadZPL()">💾 Descargar .ZPL</button>
+      <button class="btn btn-green" onclick="downloadZPL()">💾 .ZPL</button>
+      <button class="btn btn-purple" onclick="downloadLBL()">💾 .LBL</button>
     </div>
     <div class="canvas-area">
       <div class="label-canvas" id="labelCanvas"></div>
@@ -562,6 +563,83 @@ function downloadZPL(){
   a.download='etiquetas.zpl';
   a.click();
   showToast('✓ Archivo .ZPL descargado');
+}
+
+function downloadLBL(){
+  const w=+document.getElementById('labelWidth').value;
+  const h=+document.getElementById('labelHeight').value;
+  const dpi=+document.getElementById('dpi').value;
+  const code=getCurrentCode();
+  
+  let objectsXml='';
+  let objIndex=1;
+  
+  elements.forEach(el=>{
+    const x=el.x;
+    const y=el.y;
+    
+    if(el.type==='text'){
+      const text=el.text.replace(/{CODE}/g,'[VAR1]');
+      objectsXml+=`
+    <Object ID="${objIndex}" Type="Text" LockedAspect="False" Locked="False">
+      <Bounds X="${x}mm" Y="${y}mm" Width="auto" Height="auto"/>
+      <Font Family="Arial" Size="${el.fontH/5}" Bold="True"/>
+      <ForeColor>Black</ForeColor>
+      <Rotation>${el.rotation==='R'?90:el.rotation==='I'?180:el.rotation==='B'?270:0}</Rotation>
+      <Text>${text}</Text>
+    </Object>`;
+    }else if(el.type==='barcode'){
+      const data=el.barcodeData.replace(/{CODE}/g,'[VAR1]');
+      objectsXml+=`
+    <Object ID="${objIndex}" Type="Barcode" LockedAspect="False" Locked="False">
+      <Bounds X="${x}mm" Y="${y}mm" Width="auto" Height="${el.barcodeH/10}mm"/>
+      <BarcodeType>Code128</BarcodeType>
+      <ModuleWidth>${el.barcodeW}</ModuleWidth>
+      <Height>${el.barcodeH}</Height>
+      <ShowText>${el.showText}</ShowText>
+      <Rotation>${el.rotation==='R'?90:el.rotation==='I'?180:el.rotation==='B'?270:0}</Rotation>
+      <Data>${data}</Data>
+    </Object>`;
+    }else if(el.type==='line'){
+      objectsXml+=`
+    <Object ID="${objIndex}" Type="Line" LockedAspect="False" Locked="False">
+      <Bounds X="${x}mm" Y="${y}mm" Width="${el.w}mm" Height="${el.lineThick/10}mm"/>
+      <LineThickness>${el.lineThick}</LineThickness>
+      <LineColor>Black</LineColor>
+    </Object>`;
+    }else if(el.type==='rect'){
+      objectsXml+=`
+    <Object ID="${objIndex}" Type="Rectangle" LockedAspect="False" Locked="False">
+      <Bounds X="${x}mm" Y="${y}mm" Width="${el.w}mm" Height="${el.h}mm"/>
+      <LineThickness>${el.rectThick}</LineThickness>
+      <LineColor>Black</LineColor>
+      <FillColor>Transparent</FillColor>
+    </Object>`;
+    }
+    objIndex++;
+  });
+
+  const lblXml=`<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="mm">
+  <PaperOrientation>Landscape</PaperOrientation>
+  <Id>Custom</Id>
+  <PaperName>Custom ${w}mm x ${h}mm</PaperName>
+  <LabelWidth>${w}mm</LabelWidth>
+  <LabelHeight>${h}mm</LabelHeight>
+  <PrinterDPI>${dpi}</PrinterDPI>
+  <DrawCommands/>
+  <ObjectInfo>${objectsXml}
+  </ObjectInfo>
+  <Variables>
+    <Variable Name="VAR1" Type="Text" Value="${code}"/>
+  </Variables>
+</DieCutLabel>`;
+
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lblXml],{type:'application/xml'}));
+  a.download='etiqueta.lbl';
+  a.click();
+  showToast('✓ Archivo .LBL descargado');
 }
 
 function generateImage(code,scale){
